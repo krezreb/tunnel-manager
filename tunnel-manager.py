@@ -4,6 +4,7 @@ import os, yaml, time
 from subprocess import Popen, PIPE
 
 from multiprocessing import Process
+import sys
 
 def log(prefix, msg):
     for l in msg.splitlines():
@@ -27,6 +28,20 @@ def run(cmd, splitlines=False):
     return (out, err, exitcode)
 
 
+class Unbuffered(object):
+   def __init__(self, stream):
+       self.stream = stream
+   def write(self, data):
+       self.stream.write(data)
+       self.stream.flush()
+   def writelines(self, datas):
+       self.stream.writelines(datas)
+       self.stream.flush()
+   def __getattr__(self, attr):
+       return getattr(self.stream, attr)
+
+sys.stdout = Unbuffered(sys.stdout)
+
 def run_with_agent(cmd: str):
     """
     Run the given command in a shell session with a running ssh-agent
@@ -41,22 +56,33 @@ def tunnelDaemon(host, dynamic_ports=[], local_ports=[], remote_ports=[]):
     cmd = ["ssh"]
     cmd.append("-N")
     cmd.append("-o ExitOnForwardFailure=yes")
+    #cmd.append("-4")
+
+    port_count = 0
+
     for p in dynamic_ports:
         cmd.append("-D")
-        cmd.append(str(p))
+        cmd.append("{}".format(p))
+        port_count += 1
 
     for p in local_ports:
         cmd.append("-L")
         p1,p2 = p.split(":")
         cmd.append("{}:127.0.0.1:{}".format(p1,p2))
+        port_count += 1
 
     for p in remote_ports:
         cmd.append("-R")
         cmd.append("{}".format(p))
+        port_count += 1
 
 
     cmd.append(host)
-    
+
+    if port_count == 0:
+        log(host, "No ports configured, nothing to do")
+        return False
+
     while True:
         log(host, "Starting tunnel...")
         (out, err, exitcode) = tunnelProcess(cmd)

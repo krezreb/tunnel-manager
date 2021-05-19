@@ -5,11 +5,16 @@ Basic command line tool for managing ssh tunnels.
 # Requirements
 
 - python3 and  `pip3`
-- make
+- `make`
+- `git`
 
-# installation 
+# Installation 
 
-`make install`
+```
+git clone https://github.com/krezreb/tunnel-manager.git
+cd tunnel-manager
+make install
+```
 
 or for development purposes
 
@@ -23,14 +28,14 @@ File structure
 
 ```
 tunnels:
-    ssh-hostname:           # ssh host to connect to and tunnel name in console
+    ssh-hostname:           # tunnel name and ssh host
         dynamic:
-            - 12345         # dynamic ports here
+            - 12345         # (optional) dynamic ports here
         local:
-            - 32154:12345   # local ports here
+            - 54321:12345   # (optional) local ports here
         remote:
             - 127.0.0.1:65487:0.0.0.0:78456   # remote ports here
-        host: myhost        # override the above host name (if you want to name of the tunnel tobe different from the ssh hostname)
+        host: myhost        # (optional) override the above host name (if you want to name of the tunnel to be different from the ssh hostname)
 
 ```
 
