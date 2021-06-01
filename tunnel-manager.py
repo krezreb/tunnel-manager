@@ -51,12 +51,18 @@ def run_with_agent(cmd: str):
     return run("eval `ssh-agent` && " + cmd)
 
     
-def tunnelDaemon(host, dynamic_ports=[], local_ports=[], remote_ports=[]):
+def tunnelDaemon(host, dynamic_ports=[], local_ports=[], remote_ports=[], keepalive=60):
 
     cmd = ["ssh"]
     cmd.append("-N")
     cmd.append("-o ExitOnForwardFailure=yes")
     #cmd.append("-4")
+
+    try:
+        if keepalive > 0:
+            cmd.append("-o ServerAliveInterval={}".format(keepalive))
+    except:
+        pass 
 
     port_count = 0
 
@@ -133,6 +139,14 @@ if __name__ == '__main__':
         except KeyError:
             remote_ports = []
 
-        p = Process(target=tunnelDaemon, args=(host,dynamic_ports,local_ports,remote_ports ))
+        try:
+            keepalive = int(conf["tunnels"][t]["keepalive"])
+        except:
+            try:
+                keepalive = int(conf["defaults"]["keepalive"])
+            except:
+                keepalive = 60
+
+        p = Process(target=tunnelDaemon, args=(host,dynamic_ports,local_ports,remote_ports,keepalive ))
         p.start()
         # p.join()

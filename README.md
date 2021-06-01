@@ -41,6 +41,19 @@ tunnels:
 
 The `ssh-hostname` uses the entries in your ssh config.  All connection options, such as compression, jumping, keys, etc, are read from the ssh config.  You cannot use user / password authentication since tunnel-manager runs non-interactively and cannot prompt (you shouldn't be using user/password based auth anyway ☹).  Same for private keys with passwords.  If you really need private key password support, please open an incident.
 
+# keepalive
+
+By default, tunnel-manager enables [ssh keepalive](https://medium.com/swlh/keep-ssh-connections-alive-2712462ba68d).  To override this:
+
+```
+tunnels:
+    ssh-hostname:          
+        keepalive: 0    # disable on a host-by-host basis
+
+defaults
+    keepalive: 0        # disable by default
+```
+
 # Running
 
 Once installed and configured, simply run `tunnel-manager`
