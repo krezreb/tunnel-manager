@@ -3,8 +3,15 @@
 import os, yaml, time
 from subprocess import Popen, PIPE
 
-from multiprocessing import Process
+from multiprocessing import Process,  Array
 import sys
+import hashlib, json
+
+
+import time
+import pathlib
+from signal import signal, SIGINT
+from sys import exit
 
 def log(prefix, msg):
     for l in msg.splitlines():
@@ -14,6 +21,7 @@ def log(prefix, msg):
 def run(cmd, splitlines=False):
     # you had better escape cmd cause it's goin to the shell as is
     proc = Popen([cmd], stdout=PIPE, stderr=PIPE, universal_newlines=True, shell=True)
+    yield {"proc": proc}
     out, err = proc.communicate()
     if splitlines:
         out_split = []
@@ -25,7 +33,7 @@ def run(cmd, splitlines=False):
 
     exitcode = int(proc.returncode)
 
-    return (out, err, exitcode)
+    yield {"done": (out, err, exitcode)}
 
 
 class Unbuffered(object):
@@ -53,6 +61,7 @@ def run_with_agent(cmd: str):
     
 def tunnelDaemon(host, dynamic_ports=[], local_ports=[], remote_ports=[], keepalive=60):
 
+        
     cmd = ["ssh"]
     cmd.append("-N")
     cmd.append("-o ExitOnForwardFailure=yes")
@@ -91,8 +100,10 @@ def tunnelDaemon(host, dynamic_ports=[], local_ports=[], remote_ports=[], keepal
 
     while True:
         log(host, "Starting tunnel...")
-        (out, err, exitcode) = tunnelProcess(cmd)
+        for t in run_with_agent(" ".join(cmd)):
+            print(t)
 
+        (out, err, exitcode) = t["done"]
         log (host, "Tunnel exited with error code {}".format(exitcode))
         log (host, err)
         log (host, out)
@@ -100,23 +111,36 @@ def tunnelDaemon(host, dynamic_ports=[], local_ports=[], remote_ports=[], keepal
         log (host,  "Retrying in 10 seconds...")
         time.sleep(10)
 
-def tunnelProcess(cmd=[]):
-    #print (" ".join(cmd))
-    (out, err, exitcode) = run_with_agent(" ".join(cmd))
-    return (out, err, exitcode)
 
-
-if __name__ == '__main__':
-
-    conf_file = os.path.expanduser('~')+"/.ssh/tunnels.yml"
+def start(conf_file, processes = {}):
 
     with open(conf_file) as f:
         conf = yaml.load(f, Loader=yaml.FullLoader)
 
     # print (conf)
 
-
     for t in conf["tunnels"].keys():
+
+        digest = hashlib.sha1(json.dumps(conf["tunnels"][t]).encode()).hexdigest()
+
+        try:
+            print(processes[t]["process"].get())
+        except:
+            pass
+
+        try:
+            if processes[t]["digest"] == digest:
+                # process already started, skipping
+                continue
+            else:
+                # kill previously existing process
+                print("killing {}".format(t))
+                processes[t]["process"].kill()
+                processes[t]["process"].close()
+        except:
+            pass
+
+
         print (t)
 
         try:
@@ -147,6 +171,19 @@ if __name__ == '__main__':
             except:
                 keepalive = 60
 
-        p = Process(target=tunnelDaemon, args=(host,dynamic_ports,local_ports,remote_ports,keepalive ))
-        p.start()
-        # p.join()
+        processes[t] = {
+            "process" : Process(target=tunnelDaemon, args=(host,dynamic_ports,local_ports,remote_ports,keepalive )),
+            "digest" : digest
+        } 
+
+        print(processes[t]["digest"])
+        processes[t]["process"].start()
+
+    
+if __name__ == '__main__':
+    processes = {}
+    conf_file = os.path.expanduser('~')+"/.ssh/tunnels.yml"
+
+    while True:
+        start(conf_file, processes)
+        time.sleep(5)
