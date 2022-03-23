@@ -48,14 +48,15 @@ def run_with_agent(cmd: str):
     :param cmd:     The command to run
     :return:        The stdout of the process
     """
-    return run("eval `ssh-agent` && " + cmd)
+    return run("eval `ssh-agent -s` && " + cmd)
 
     
-def tunnelDaemon(host, dynamic_ports=[], local_ports=[], remote_ports=[], keepalive=60):
+def tunnelDaemon(host, dynamic_ports=[], local_ports=[], remote_ports=[], keepalive=60, with_agent=False, connect_timeout=30):
 
     cmd = ["ssh"]
     cmd.append("-N")
     cmd.append("-o ExitOnForwardFailure=yes")
+    cmd.append("-o ConnectTimeout={}".format(connect_timeout))
     #cmd.append("-4")
 
     try:
@@ -91,7 +92,7 @@ def tunnelDaemon(host, dynamic_ports=[], local_ports=[], remote_ports=[], keepal
 
     while True:
         log(host, "Starting tunnel...")
-        (out, err, exitcode) = tunnelProcess(cmd)
+        (out, err, exitcode) = tunnelProcess(cmd, with_agent)
 
         log (host, "Tunnel exited with error code {}".format(exitcode))
         log (host, err)
@@ -100,9 +101,12 @@ def tunnelDaemon(host, dynamic_ports=[], local_ports=[], remote_ports=[], keepal
         log (host,  "Retrying in 10 seconds...")
         time.sleep(10)
 
-def tunnelProcess(cmd=[]):
+def tunnelProcess(cmd=[], with_agent=False):
     #print (" ".join(cmd))
-    (out, err, exitcode) = run_with_agent(" ".join(cmd))
+    if run_with_agent:
+        (out, err, exitcode) = run_with_agent(" ".join(cmd))
+    else:
+        (out, err, exitcode) = run(" ".join(cmd))
     return (out, err, exitcode)
 
 
@@ -147,6 +151,19 @@ if __name__ == '__main__':
             except:
                 keepalive = 60
 
-        p = Process(target=tunnelDaemon, args=(host,dynamic_ports,local_ports,remote_ports,keepalive ))
+        try:
+            timeout = int(conf["tunnels"][t]["timeout"])
+        except:
+            try:
+                timeout = int(conf["defaults"]["timeout"])
+            except:
+                timeout = 10
+
+        try:
+            with_agent = conf["tunnels"][t]["ssh_agent"]
+        except KeyError:
+            with_agent=False
+
+        p = Process(target=tunnelDaemon, args=(host,dynamic_ports,local_ports,remote_ports,keepalive,with_agent,timeout ))
         p.start()
         # p.join()
