@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 
-import os, yaml, time
+import os
+import yaml
+import time
 from subprocess import Popen, PIPE
 
 from multiprocessing import Process
 import sys
+
 
 def log(prefix, msg):
     for l in msg.splitlines():
@@ -13,7 +16,8 @@ def log(prefix, msg):
 
 def run(cmd, splitlines=False):
     # you had better escape cmd cause it's goin to the shell as is
-    proc = Popen([cmd], stdout=PIPE, stderr=PIPE, universal_newlines=True, shell=True)
+    proc = Popen([cmd], stdout=PIPE, stderr=PIPE,
+                 universal_newlines=True, shell=True)
     out, err = proc.communicate()
     if splitlines:
         out_split = []
@@ -29,18 +33,23 @@ def run(cmd, splitlines=False):
 
 
 class Unbuffered(object):
-   def __init__(self, stream):
-       self.stream = stream
-   def write(self, data):
-       self.stream.write(data)
-       self.stream.flush()
-   def writelines(self, datas):
-       self.stream.writelines(datas)
-       self.stream.flush()
-   def __getattr__(self, attr):
-       return getattr(self.stream, attr)
+    def __init__(self, stream):
+        self.stream = stream
+
+    def write(self, data):
+        self.stream.write(data)
+        self.stream.flush()
+
+    def writelines(self, datas):
+        self.stream.writelines(datas)
+        self.stream.flush()
+
+    def __getattr__(self, attr):
+        return getattr(self.stream, attr)
+
 
 sys.stdout = Unbuffered(sys.stdout)
+
 
 def run_with_agent(cmd: str):
     """
@@ -50,20 +59,20 @@ def run_with_agent(cmd: str):
     """
     return run("eval `ssh-agent -s` && " + cmd)
 
-    
+
 def tunnelDaemon(host, dynamic_ports=[], local_ports=[], remote_ports=[], keepalive=60, with_agent=False, connect_timeout=30):
 
     cmd = ["ssh"]
     cmd.append("-N")
     cmd.append("-o ExitOnForwardFailure=yes")
     cmd.append("-o ConnectTimeout={}".format(connect_timeout))
-    #cmd.append("-4")
+    # cmd.append("-4")
 
     try:
         if keepalive > 0:
             cmd.append("-o ServerAliveInterval={}".format(keepalive))
     except:
-        pass 
+        pass
 
     port_count = 0
 
@@ -74,15 +83,14 @@ def tunnelDaemon(host, dynamic_ports=[], local_ports=[], remote_ports=[], keepal
 
     for p in local_ports:
         cmd.append("-L")
-        p1,p2 = p.split(":")
-        cmd.append("{}:127.0.0.1:{}".format(p1,p2))
+        p1, p2 = p.split(":")
+        cmd.append("{}:127.0.0.1:{}".format(p1, p2))
         port_count += 1
 
     for p in remote_ports:
         cmd.append("-R")
         cmd.append("{}".format(p))
         port_count += 1
-
 
     cmd.append(host)
 
@@ -94,15 +102,16 @@ def tunnelDaemon(host, dynamic_ports=[], local_ports=[], remote_ports=[], keepal
         log(host, "Starting tunnel...")
         (out, err, exitcode) = tunnelProcess(cmd, with_agent)
 
-        log (host, "Tunnel exited with error code {}".format(exitcode))
-        log (host, err)
-        log (host, out)
-        
-        log (host,  "Retrying in 10 seconds...")
+        log(host, "Tunnel exited with error code {}".format(exitcode))
+        log(host, err)
+        log(host, out)
+
+        log(host,  "Retrying in 10 seconds...")
         time.sleep(10)
 
+
 def tunnelProcess(cmd=[], with_agent=False):
-    #print (" ".join(cmd))
+    # print (" ".join(cmd))
     if run_with_agent:
         (out, err, exitcode) = run_with_agent(" ".join(cmd))
     else:
@@ -119,9 +128,8 @@ if __name__ == '__main__':
 
     # print (conf)
 
-
     for t in conf["tunnels"].keys():
-        print (t)
+        print(t)
 
         try:
             host = conf["tunnels"][t]["host"]
@@ -162,8 +170,9 @@ if __name__ == '__main__':
         try:
             with_agent = conf["tunnels"][t]["ssh_agent"]
         except KeyError:
-            with_agent=False
+            with_agent = False
 
-        p = Process(target=tunnelDaemon, args=(host,dynamic_ports,local_ports,remote_ports,keepalive,with_agent,timeout ))
+        p = Process(target=tunnelDaemon, args=(host, dynamic_ports,
+                    local_ports, remote_ports, keepalive, with_agent, timeout))
         p.start()
         # p.join()
