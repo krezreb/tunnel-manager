@@ -39,7 +39,9 @@ tunnels:
 
 ```
 
-The `ssh-hostname` uses the entries in your ssh config.  All connection options, such as compression, jumping, keys, etc, are read from the ssh config.  You cannot use user / password authentication since tunnel-manager runs non-interactively and cannot prompt (you shouldn't be using user/password based auth anyway ☹).  Same for private keys with passwords.  If you really need private key password support, please open an incident.
+The `ssh-hostname` uses the entries in your ssh config.  All connection options, such as compression, jumping, keys, etc, are read from the ssh config. 
+
+For password-protected private keys, use ssh-agent and add the keys to the agent prior to running `tunnel-manager`.  User/Password authentication is not supported.
 
 # keepalive
 
