@@ -17,7 +17,7 @@ fi
 install () {
   	echo installing into $TARGET_DIR
 
-	pip3 install --user -r requirements.txt
+	pip3 install --user -r requirements.txt --break-system-packages
 	cd $TARGET_DIR
 
 	cp $SRC_DIR/tunnel-manager.py tunnel-manager
