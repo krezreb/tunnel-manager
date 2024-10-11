@@ -3,7 +3,7 @@
 import os
 import yaml
 import time
-from subprocess import Popen, PIPE
+import subprocess
 
 from multiprocessing import Process
 import sys
@@ -14,22 +14,10 @@ def log(prefix, msg):
         print("{}: {}".format(prefix, l))
 
 
-def run(cmd, splitlines=False):
-    # you had better escape cmd cause it's goin to the shell as is
-    proc = Popen([cmd], stdout=PIPE, stderr=PIPE,
-                 universal_newlines=True, shell=True)
-    out, err = proc.communicate()
-    if splitlines:
-        out_split = []
-        for line in out.split("\n"):
-            line = line.strip()
-            if line != '':
-                out_split.append(line)
-        out = out_split
+def run(cmd=[], splitlines=False):
+    p = subprocess.run(cmd, capture_output=True)
 
-    exitcode = int(proc.returncode)
-
-    return (out, err, exitcode)
+    return  p.stdout, p.stderr, p.returncode
 
 
 class Unbuffered(object):
@@ -51,16 +39,7 @@ class Unbuffered(object):
 sys.stdout = Unbuffered(sys.stdout)
 
 
-def run_with_agent(cmd: str):
-    """
-    Run the given command in a shell session with a running ssh-agent
-    :param cmd:     The command to run
-    :return:        The stdout of the process
-    """
-    return run("eval `ssh-agent -s` && " + cmd)
-
-
-def tunnelDaemon(host, dynamic_ports=[], local_ports=[], remote_ports=[], keepalive=60, with_agent=False, connect_timeout=30):
+def tunnelDaemon(host, dynamic_ports=[], local_ports=[], remote_ports=[], keepalive=60, connect_timeout=30):
 
     cmd = ["ssh"]
     cmd.append("-N")
@@ -100,7 +79,7 @@ def tunnelDaemon(host, dynamic_ports=[], local_ports=[], remote_ports=[], keepal
 
     while True:
         log(host, "Starting tunnel...")
-        (out, err, exitcode) = tunnelProcess(cmd, with_agent)
+        (out, err, exitcode) = tunnelProcess(cmd)
 
         log(host, "Tunnel exited with error code {}".format(exitcode))
         log(host, err)
@@ -110,13 +89,11 @@ def tunnelDaemon(host, dynamic_ports=[], local_ports=[], remote_ports=[], keepal
         time.sleep(10)
 
 
-def tunnelProcess(cmd=[], with_agent=False):
+def tunnelProcess(cmd=[]):
     # print (" ".join(cmd))
-    if run_with_agent:
-        (out, err, exitcode) = run_with_agent(" ".join(cmd))
-    else:
-        (out, err, exitcode) = run(" ".join(cmd))
-    return (out, err, exitcode)
+
+    out, err, exitcode = run(cmd)
+    return out, err, exitcode
 
 
 if __name__ == '__main__':
@@ -167,12 +144,7 @@ if __name__ == '__main__':
             except:
                 timeout = 10
 
-        try:
-            with_agent = conf["tunnels"][t]["ssh_agent"]
-        except KeyError:
-            with_agent = False
-
         p = Process(target=tunnelDaemon, args=(host, dynamic_ports,
-                    local_ports, remote_ports, keepalive, with_agent, timeout))
+                    local_ports, remote_ports, keepalive, timeout))
         p.start()
         # p.join()
